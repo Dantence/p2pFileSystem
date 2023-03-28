@@ -19,8 +19,12 @@ public class SocketPool {
     public static synchronized Socket getSocket(String host, int port) throws Exception {
         // 查找可用的socket
         for (int i = 0; i < pool.size(); i++) {
+
             Socket socket = pool.get(i);
-            if (socket.getInetAddress().getHostName().equals(host) && socket.getPort() == port && !socket.isClosed()) {
+            System.out.println("host: " + socket.getInetAddress().getHostAddress());
+            System.out.println("port: " + socket.getPort());
+
+            if (socket.getInetAddress().getHostAddress().equals(host) && socket.getPort() == port && !socket.isClosed()) {
                 pool.remove(i);
                 return socket;
             }
@@ -49,5 +53,13 @@ public class SocketPool {
             }
         }
         pool.clear();
+    }
+
+    public static void offer(Socket socket) {
+        pool.add(socket);
+    }
+
+    public static int poolSize() {
+        return pool.size();
     }
 }

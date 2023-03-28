@@ -29,12 +29,17 @@ public class DownloadFileService {
         message.setSrc(fileName);
         message.setDest(dest);
         message.setMessageType(MessageType.FILE_DOWNLOAD_REQ);
+        Socket socket = null;
         try {
-            Socket socket = SocketPool.getSocket(receiver, PropertyParser.getPort());
+            socket = SocketPool.getSocket(receiver, PropertyParser.getPort());
             ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
             oos.writeObject(message);
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            if(socket != null) {
+                SocketPool.offer(socket);
+            }
         }
 
     }

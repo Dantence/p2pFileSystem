@@ -7,15 +7,15 @@ package cache;/**
 import common.util.FileScanner;
 import common.util.PropertyParser;
 import thread.BroadcastReceiverThread;
+import thread.Server;
 import thread.ServerThread;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -36,11 +36,37 @@ public class Cache {
     public static String localHost;
 
     static {
+        localHost = getLocalHostExactAddress();
+    }
+
+    public static String getLocalHostExactAddress() {
         try {
-            localHost = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface current = interfaces.nextElement();
+                if (!current.isUp() || current.isLoopback() || current.isVirtual()) {
+                    continue;
+                }
+                Enumeration<InetAddress> addresses = current.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress currentAddr = addresses.nextElement();
+                    if (currentAddr.isLoopbackAddress()) {
+                        continue;
+                    }
+                    if (currentAddr.getHostAddress().contains(":")) {
+                        // IPv6 address
+                        continue;
+                    }
+                    if (currentAddr.isSiteLocalAddress()) {
+                        return currentAddr.getHostAddress();
+                    }
+
+                }
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
+        return null;
     }
 
     public static Socket getSocketByIp(String ip) throws IOException {
@@ -55,11 +81,30 @@ public class Cache {
 
     public static BroadcastReceiverThread broadcastReceiverThread;
 
-    public static ServerThread serverThread;
+    public static Server serverThread;
+
+    public static Map<String, Socket> serverThreadMap = new HashMap<>();
+
+    public static boolean checkThread(String ip) {
+        return serverThreadMap.containsKey(ip);
+    }
 
     public static void stopAllThread() {
         broadcastReceiverThread.stop();
-        serverThread.stop();
+        for(String ip : serverThreadMap.keySet()) {
+            try {
+                serverThreadMap.get(ip).close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        try {
+            serverThread.stop();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void add(String ip, List<String> resources) {

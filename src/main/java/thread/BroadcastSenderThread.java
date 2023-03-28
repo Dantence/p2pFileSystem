@@ -30,6 +30,12 @@ public class BroadcastSenderThread implements Runnable {
 
     private String messageType;
 
+    private boolean loop = true;
+
+    public void stop() {
+        loop = false;
+    }
+
     public BroadcastSenderThread(String messageType) {
         this.messageType = messageType;
     }
@@ -40,7 +46,7 @@ public class BroadcastSenderThread implements Runnable {
         Message message = new Message();
         BroadcastLoginDTO broadcastLoginDTO = new BroadcastLoginDTO();
         broadcastLoginDTO.setIp(Cache.localHost);
-        broadcastLoginDTO.setResources(FileScanner.getAllFiles(PropertyParser.getRoot()));
+        broadcastLoginDTO.setResources(FileScanner.getAllFiles(PropertyParser.getShareRoot()));
         message.setBroadcastLoginDTO(broadcastLoginDTO);
         message.setMessageType(messageType);
 
@@ -59,7 +65,7 @@ public class BroadcastSenderThread implements Runnable {
                     // 设置超时时间
                     socket.setSoTimeout(3000);
 
-                    while (true) {
+                    while (loop) {
                         try {
                             socket.receive(receivePacket);
                             ByteArrayInputStream bais = new ByteArrayInputStream(receivePacket.getData());
@@ -79,8 +85,12 @@ public class BroadcastSenderThread implements Runnable {
                         }
                     }
                     socket.close();
-                    Cache.add(Cache.localHost, FileScanner.getAllFiles(PropertyParser.getRoot()));
+                    Cache.add(Cache.localHost, FileScanner.getAllFiles(PropertyParser.getShareRoot()));
                     new Thread(new ClientThread()).start();
+                    break;
+                }
+                case MessageType.BROADCAST_LOGOUT_REQ: {
+                    socket.close();
                     break;
                 }
 

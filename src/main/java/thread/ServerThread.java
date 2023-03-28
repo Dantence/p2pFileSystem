@@ -28,69 +28,108 @@ import java.util.List;
  */
 public class ServerThread implements Runnable {
 
-    private boolean loop = true;
-    private ServerSocket serverSocket = null;
+    public Socket socket;
 
-    public void stop() {
+    private boolean loop = true;
+
+    public void stop() throws IOException {
         loop = false;
+        socket.close();
+    }
+
+    public ServerThread(Socket socket) {
+        this.socket = socket;
     }
 
     @Override
     public void run() {
-        int port = PropertyParser.getPort();
         try {
-            serverSocket = new ServerSocket(port);
             while (loop) {
-                Socket socket = serverSocket.accept();
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
                 Message message = (Message) ois.readObject();
-                String receiver = message.getReceiver();
-                if (!CommonUtil.checkSelf(receiver)) {
-                    if (message.getMessageType().equals(MessageType.BROADCAST_LOGIN_RESP)) {
-                        String ip = message.getBroadcastLoginDTO().getIp();
-                        List<String> resources = message.getBroadcastLoginDTO().getResources();
-                        Cache.add(ip, resources);
-                    } else if (message.getMessageType().equals(MessageType.FILE_SEND)) {
-                        System.out.println("收到来自ip " + message.getSender() + "的文件: " + message.getSrc());
-                        FileOutputStream fileOutputStream = new FileOutputStream(message.getDest());
-                        fileOutputStream.write(message.getFileBytes());
-                        fileOutputStream.close();
-                        System.out.println("\n 已保存文件至 " + message.getDest());
-                    }
-                }
-                if (message.getMessageType().equals(MessageType.FILE_DOWNLOAD_REQ)) {
-                    Message response = new Message();
-                    response.setSender(Cache.localHost);
-                    response.setReceiver(message.getSender());
-                    response.setSrc(message.getSrc());
-                    response.setDest(message.getDest());
-                    response.setMessageType(MessageType.FILE_DOWNLOAD_RESP);
+                String sender = message.getSender();
+                System.out.println("收到 ip " + sender + "的信息");
+                Cache.serverThreadMap.put(sender, socket);
+                if (!CommonUtil.checkSelf(sender)) {
+                    switch (message.getMessageType()) {
+                        case MessageType.BROADCAST_LOGIN_RESP:
+                            String ip = message.getBroadcastLoginDTO().getIp();
+                            List<String> resources = message.getBroadcastLoginDTO().getResources();
+                            Cache.add(ip, resources);
+                            break;
+                        case MessageType.FILE_SEND: {
+                            System.out.println("收到来自ip " + sender + "的文件: " + message.getSrc());
+                            FileOutputStream fileOutputStream = new FileOutputStream(PropertyParser.getDownloadRoot() + "/" + message.getSrc());
+                            fileOutputStream.write(message.getFileBytes());
+                            fileOutputStream.close();
+                            System.out.println("\n 已保存文件至 " + PropertyParser.getDownloadRoot() + "/" + message.getSrc());
+                            break;
+                        }
+                        case MessageType.FILE_DOWNLOAD_REQ:
+                            Message response = new Message();
+                            response.setSender(Cache.localHost);
+                            response.setReceiver(sender);
+                            response.setSrc(message.getSrc());
+                            response.setDest(message.getDest());
+                            response.setMessageType(MessageType.FILE_DOWNLOAD_RESP);
 
-                    String src = PropertyParser.getRoot() + "/" + message.getSrc();
-                    System.out.println("src: " + src);
-                    byte[] fileBytes = CommonUtil.getFileBytes(src);
-                    if (fileBytes == null) {
-                        // TODO
-                    } else {
-                        response.setFileBytes(fileBytes);
+                            String src = PropertyParser.getShareRoot() + "/" + message.getSrc();
+                            System.out.println("文件 " + src + "被 " + sender + " 下载");
+                            byte[] fileBytes = CommonUtil.getFileBytes(src);
+                            if (fileBytes == null) {
+                                // TODO
+                            } else {
+                                response.setFileBytes(fileBytes);
+                            }
+                            Socket tcpSocket = SocketPool.getSocket(sender, PropertyParser.getPort());
+                            ObjectOutputStream oos = new ObjectOutputStream(tcpSocket.getOutputStream());
+                            oos.writeObject(response);
+                            break;
+                        case MessageType.FILE_DOWNLOAD_RESP: {
+                            String dest = message.getDest() + "/" + message.getSrc();
+                            FileOutputStream fileOutputStream = new FileOutputStream(dest);
+                            fileOutputStream.write(message.getFileBytes());
+                            fileOutputStream.close();
+                            System.out.println("\n 已保存文件至 " + dest);
+                            break;
+                        } case MessageType.BROADCAST_LOGOUT_RESP: {
+                            System.out.println("\nlogout resp");
+                            response = new Message();
+                            response.setSender(Cache.localHost);
+                            response.setReceiver(sender);
+                            response.setMessageType(MessageType.CLOSE_REQ);
+                            tcpSocket = SocketPool.getSocket(sender, PropertyParser.getPort());
+                            oos = new ObjectOutputStream(tcpSocket.getOutputStream());
+                            oos.writeObject(response);
+                            break;
+                        } case MessageType.CLOSE_REQ: {
+                            System.out.println("\nclose req");
+                            response = new Message();
+                            response.setSender(Cache.localHost);
+                            response.setReceiver(sender);
+                            response.setMessageType(MessageType.CLOSE_RESP);
+                            tcpSocket = SocketPool.getSocket(sender, PropertyParser.getPort());
+                            oos = new ObjectOutputStream(tcpSocket.getOutputStream());
+                            oos.writeObject(response);
+                            socket.shutdownOutput();
+                            socket.shutdownInput();
+                            loop = false;
+                            break;
+                        } case MessageType.CLOSE_RESP: {
+                            System.out.println("\nclose resp");
+                            socket.shutdownOutput();
+                            socket.shutdownInput();
+                            loop = false;
+                            break;
+                        }
                     }
-                    Socket tcpSocket = SocketPool.getSocket(message.getSender(), PropertyParser.getPort());
-                    ObjectOutputStream oos = new ObjectOutputStream(tcpSocket.getOutputStream());
-                    oos.writeObject(response);
-                }
-                if(message.getMessageType().equals(MessageType.FILE_DOWNLOAD_RESP)) {
-                    String dest = message.getDest() + "/" + message.getSrc();
-                    FileOutputStream fileOutputStream = new FileOutputStream(dest);
-                    fileOutputStream.write(message.getFileBytes());
-                    fileOutputStream.close();
-                    System.out.println("\n 已保存文件至 " + dest);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+
         } finally {
             try {
-                serverSocket.close();
+                socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }

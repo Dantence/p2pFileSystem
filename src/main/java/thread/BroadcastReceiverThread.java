@@ -31,13 +31,15 @@ public class BroadcastReceiverThread implements Runnable {
 
     public void stop() {
         loop = false;
+        socket.close();
     }
+
+    public DatagramSocket socket = null;
 
     @Override
     public void run() {
         int port = PropertyParser.getPort();
-        // 创建UDP socket
-        DatagramSocket socket = null;
+
         try {
             socket = new DatagramSocket(port);
             byte[] buffer = new byte[1024];
@@ -58,14 +60,13 @@ public class BroadcastReceiverThread implements Runnable {
                         // 在缓存中增加节点
                         Cache.add(ip, resources);
 
-                        System.out.println("Received broadcast: ");
-                        System.out.println("ip: " + ip);
+                        System.out.println("\nip " + ip + "上线");
 
                         // 发送响应数据
                         Message response = new Message();
                         BroadcastLoginDTO broadcastLoginDTO = new BroadcastLoginDTO();
                         broadcastLoginDTO.setIp(Cache.localHost);
-                        broadcastLoginDTO.setResources(FileScanner.getAllFiles(PropertyParser.getRoot()));
+                        broadcastLoginDTO.setResources(FileScanner.getAllFiles(PropertyParser.getShareRoot()));
                         response.setBroadcastLoginDTO(broadcastLoginDTO);
                         response.setMessageType(MessageType.BROADCAST_LOGIN_RESP);
 
@@ -73,17 +74,26 @@ public class BroadcastReceiverThread implements Runnable {
 
                         ObjectOutputStream oos = new ObjectOutputStream(tcpSocket.getOutputStream());
                         oos.writeObject(response);
-
                         //MessageUtil.sendMessage(socket, response, packet.getAddress(), packet.getPort());
                     } else if (message.getMessageType().equals(MessageType.BROADCAST_LOGOUT_REQ)) {
+                        System.out.println("\nip " + ip + "下线");
                         // 从缓存中清除下线节点
                         Cache.clear(ip);
+                        if(Cache.checkThread(ip)) {
+                            Message response = new Message();
+                            response.setSender(Cache.localHost);
+                            response.setReceiver(ip);
+                            response.setMessageType(MessageType.BROADCAST_LOGOUT_RESP);
+                            Socket tcpSocket = SocketPool.getSocket(ip, port);
+                            ObjectOutputStream oos = new ObjectOutputStream(tcpSocket.getOutputStream());
+                            oos.writeObject(response);
+                        }
                     }
                 }
 
             }
         } catch (Exception e) {
-            e.printStackTrace();
+
         } finally {
             socket.close();
         }

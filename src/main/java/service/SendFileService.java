@@ -28,23 +28,28 @@ import java.net.UnknownHostException;
  * @version: 1.0
  */
 public class SendFileService {
-    public void sendFile(String src, String sender, String dest, String receiver) {
+    public void sendFile(String src, String sender, String receiver) {
 
         Message message = new Message();
         message.setMessageType(MessageType.FILE_SEND);
         message.setSrc(src);
         message.setSender(sender);
-        message.setDest(dest);
         message.setReceiver(receiver);
-        byte[] fileBytes = CommonUtil.getFileBytes(src);
+        byte[] fileBytes = CommonUtil.getFileBytes(PropertyParser.getShareRoot() + "/" + src);
         message.setFileBytes(fileBytes);
+        Socket socket = null;
         try {
-            Socket socket = SocketPool.getSocket(receiver, PropertyParser.getPort());
+            socket = SocketPool.getSocket(receiver, PropertyParser.getPort());
             ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
             oos.writeObject(message);
-
+            //oos.flush();
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            if(socket != null) {
+                SocketPool.offer(socket);
+            }
         }
+
     }
 }

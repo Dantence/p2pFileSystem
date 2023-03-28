@@ -4,6 +4,7 @@ package common.util;/**
  * @date 2023/3/24
  */
 
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Properties;
 
@@ -21,8 +22,9 @@ public class PropertyParser {
     private static final Properties properties = new Properties();
 
     static {
-        InputStream inputStream = PropertyParser.class.getClassLoader().getResourceAsStream("setting.properties");
+        FileInputStream inputStream = null;
         try {
+            inputStream = new FileInputStream("settings/setting.properties");
             properties.load(inputStream);
         } catch (Exception e) {
             e.printStackTrace();
@@ -41,7 +43,11 @@ public class PropertyParser {
         return Integer.parseInt(properties.getProperty("port"));
     }
 
-    public static String getRoot() {
-        return properties.getProperty("root");
+    public static String getShareRoot() {
+        return properties.getProperty("share_root");
+    }
+
+    public static String getDownloadRoot() {
+        return properties.getProperty("download_root");
     }
 }

@@ -18,5 +18,10 @@ public interface MessageType {
     String FILE_DOWNLOAD_REQ = "5";
     // 文件下载响应
     String FILE_DOWNLOAD_RESP = "6";
+    String BROADCAST_LOGOUT_RESP = "7";
+
+    String CLOSE_REQ = "8";
+
+    String CLOSE_RESP = "9";
 
 }

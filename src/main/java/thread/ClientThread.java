@@ -13,6 +13,7 @@ import service.SendFileService;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -48,6 +49,7 @@ public class ClientThread implements Runnable {
                     for (String ip : Cache.ipTable) {
                         System.out.println(ip);
                     }
+
                     System.out.println();
                     break;
                 case "2":
@@ -59,14 +61,15 @@ public class ClientThread implements Runnable {
                     }
                     System.out.println("请输入要发送的文件名: ");
                     String file = scanner.next();
-                    sendFileService.sendFile(file, Cache.localHost, "D:\\test\\yyw.txt", ip);
+                    sendFileService.sendFile(file, Cache.localHost, ip);
                     break;
                 case "3":
                     System.out.println("请输入要发送的文件名: ");
                     file = scanner.next();
                     for (String address : Cache.ipTable) {
-                        sendFileService.sendFile(file, Cache.localHost,
-                                "D:\\test\\yyw.txt", address);
+                        if(!CommonUtil.checkSelf(address)) {
+                            sendFileService.sendFile(file, Cache.localHost, address);
+                        }
                     }
                     break;
                 case "4":
@@ -85,11 +88,11 @@ public class ClientThread implements Runnable {
                     downloadFileService.downloadFile(Cache.localHost, receiver, file, dest);
                     break;
                 case "9":
-                    new Thread(new BroadcastSenderThread(MessageType.BROADCAST_LOGOUT_REQ)).start();
-                    Cache.stopAllThread();
+                    //new Thread(new BroadcastSenderThread(MessageType.BROADCAST_LOGOUT_REQ)).start();
+                    //Cache.stopAllThread();
                     loop = false;
-                    SocketPool.closeAll();
-                    System.exit(0);
+                    //SocketPool.closeAll();
+                    //System.exit(0);
                     break;
 
             }
