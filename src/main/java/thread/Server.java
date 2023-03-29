@@ -36,7 +36,7 @@ public class Server implements Runnable{
             serverSocket = new ServerSocket(port);
             while (loop) {
                 Socket socket = serverSocket.accept();
-                System.out.println("Accepted connection from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                //System.out.println("Accepted connection from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
                 new Thread(new ServerThread(socket)).start();
             }
         } catch (Exception e) {

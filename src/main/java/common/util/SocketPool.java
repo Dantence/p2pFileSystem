@@ -21,8 +21,6 @@ public class SocketPool {
         for (int i = 0; i < pool.size(); i++) {
 
             Socket socket = pool.get(i);
-            System.out.println("host: " + socket.getInetAddress().getHostAddress());
-            System.out.println("port: " + socket.getPort());
 
             if (socket.getInetAddress().getHostAddress().equals(host) && socket.getPort() == port && !socket.isClosed()) {
                 pool.remove(i);

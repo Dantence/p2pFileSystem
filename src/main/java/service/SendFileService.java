@@ -23,7 +23,7 @@ import java.net.UnknownHostException;
  * @package: service
  * @className: SendFileService
  * @author: Dantence
- * @description: TODO
+ * @description: 文件发送服务
  * @date: 2023/3/23 22:08
  * @version: 1.0
  */

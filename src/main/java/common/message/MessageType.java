@@ -18,10 +18,15 @@ public interface MessageType {
     String FILE_DOWNLOAD_REQ = "5";
     // 文件下载响应
     String FILE_DOWNLOAD_RESP = "6";
+    // 退出登录响应
     String BROADCAST_LOGOUT_RESP = "7";
-
+    // 关闭程序请求
     String CLOSE_REQ = "8";
-
+    // 关闭程序响应
     String CLOSE_RESP = "9";
+    // 心跳检测请求
+    String HEART_BEAT_REQ = "10";
+    // 心跳检测响应
+    String HEART_BEAT_RESP = "11";
 
 }

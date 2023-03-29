@@ -48,7 +48,6 @@ public class ServerThread implements Runnable {
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
                 Message message = (Message) ois.readObject();
                 String sender = message.getSender();
-                System.out.println("收到 ip " + sender + "的信息");
                 Cache.serverThreadMap.put(sender, socket);
                 if (!CommonUtil.checkSelf(sender)) {
                     switch (message.getMessageType()) {
@@ -56,13 +55,14 @@ public class ServerThread implements Runnable {
                             String ip = message.getBroadcastLoginDTO().getIp();
                             List<String> resources = message.getBroadcastLoginDTO().getResources();
                             Cache.add(ip, resources);
+                            System.out.println("ip " + ip + " 在线");
                             break;
                         case MessageType.FILE_SEND: {
-                            System.out.println("收到来自ip " + sender + "的文件: " + message.getSrc());
+                            System.out.println("\n收到来自ip " + sender + "的文件: " + message.getSrc());
                             FileOutputStream fileOutputStream = new FileOutputStream(PropertyParser.getDownloadRoot() + "/" + message.getSrc());
                             fileOutputStream.write(message.getFileBytes());
                             fileOutputStream.close();
-                            System.out.println("\n 已保存文件至 " + PropertyParser.getDownloadRoot() + "/" + message.getSrc());
+                            System.out.println("已保存文件至 " + PropertyParser.getDownloadRoot() + "/" + message.getSrc());
                             break;
                         }
                         case MessageType.FILE_DOWNLOAD_REQ:
@@ -90,10 +90,9 @@ public class ServerThread implements Runnable {
                             FileOutputStream fileOutputStream = new FileOutputStream(dest);
                             fileOutputStream.write(message.getFileBytes());
                             fileOutputStream.close();
-                            System.out.println("\n 已保存文件至 " + dest);
+                            System.out.println("\n已保存文件至 " + dest);
                             break;
                         } case MessageType.BROADCAST_LOGOUT_RESP: {
-                            System.out.println("\nlogout resp");
                             response = new Message();
                             response.setSender(Cache.localHost);
                             response.setReceiver(sender);
@@ -103,7 +102,6 @@ public class ServerThread implements Runnable {
                             oos.writeObject(response);
                             break;
                         } case MessageType.CLOSE_REQ: {
-                            System.out.println("\nclose req");
                             response = new Message();
                             response.setSender(Cache.localHost);
                             response.setReceiver(sender);
@@ -116,10 +114,14 @@ public class ServerThread implements Runnable {
                             loop = false;
                             break;
                         } case MessageType.CLOSE_RESP: {
-                            System.out.println("\nclose resp");
                             socket.shutdownOutput();
                             socket.shutdownInput();
                             loop = false;
+                            break;
+                        } case MessageType.HEART_BEAT_RESP: {
+                            ip = message.getBroadcastLoginDTO().getIp();
+                            resources = message.getBroadcastLoginDTO().getResources();
+                            Cache.add(ip, resources);
                             break;
                         }
                     }

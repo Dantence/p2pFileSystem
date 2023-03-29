@@ -3,9 +3,10 @@ package window;
 import cache.Cache;
 import common.message.MessageType;
 import common.util.CommonUtil;
+import common.util.FileScanner;
 import common.util.PropertyParser;
+import service.BroadcastSenderService;
 import service.SendFileService;
-import thread.BroadcastSenderThread;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -13,22 +14,21 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
-import java.net.URL;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-public class FileUploader extends JFrame {
+public class ClientWindow extends JFrame {
 
     private JPanel mainPanel, filePanel, buttonPanel;
     private JLabel fileLabel;
     private JTextField fileTextField;
-    private JButton chooseFileButton, uploadButton, showUserListButton;
+    private JButton chooseFileButton, uploadButton, showUserListButton, showShareFileListButton, showDownloadFileButton;
     private JFileChooser fileChooser;
-    private File selectedFile;
+    private File selectedFile, selectedShareFile;
 
     private final SendFileService sendFileService = new SendFileService();
 
-    public FileUploader() {
+    public ClientWindow() {
 
         initUI();
     }
@@ -44,9 +44,10 @@ public class FileUploader extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 // 执行关闭窗口事件时所需的操作
-                new Thread(new BroadcastSenderThread(MessageType.BROADCAST_LOGOUT_REQ)).start();
+                BroadcastSenderService.sendMessage(MessageType.BROADCAST_LOGOUT_REQ);
                 // 关闭程序
-                dispose();
+                //dispose();
+                System.exit(0);
             }
         });
 
@@ -69,22 +70,22 @@ public class FileUploader extends JFrame {
                 fileChooser = new JFileChooser();
                 File desktopDir = new File(System.getProperty("user.home"), "Desktop");
                 fileChooser.setCurrentDirectory(desktopDir);
-                int returnVal = fileChooser.showOpenDialog(FileUploader.this);
+                int returnVal = fileChooser.showOpenDialog(ClientWindow.this);
                 if (returnVal == JFileChooser.APPROVE_OPTION) {
-                    selectedFile = fileChooser.getSelectedFile();
-                    fileTextField.setText(selectedFile.getAbsolutePath());
+                    selectedShareFile = fileChooser.getSelectedFile();
+                    fileTextField.setText(selectedShareFile.getAbsolutePath());
                 }
             }
         });
 
-        uploadButton = new JButton("发送文件");
+        uploadButton = new JButton("发送共享文件");
         uploadButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (selectedFile != null && selectedFile.exists()) {
+                if (selectedShareFile != null && selectedShareFile.exists()) {
                     try {
-                        FileInputStream inputStream = new FileInputStream(selectedFile);
-                        FileOutputStream outputStream = new FileOutputStream(PropertyParser.getShareRoot() + "/" + selectedFile.getName());
+                        FileInputStream inputStream = new FileInputStream(selectedShareFile);
+                        FileOutputStream outputStream = new FileOutputStream(PropertyParser.getShareRoot() + "/" + selectedShareFile.getName());
                         byte[] buffer = new byte[1024];
                         int bytesRead;
                         while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -95,7 +96,7 @@ public class FileUploader extends JFrame {
 
                         for (String address : Cache.ipTable) {
                             if (!CommonUtil.checkSelf(address)) {
-                                sendFileService.sendFile(selectedFile.getName(), Cache.localHost, address);
+                                sendFileService.sendFile(selectedShareFile.getName(), Cache.localHost, address);
                             }
                         }
 
@@ -104,6 +105,8 @@ public class FileUploader extends JFrame {
                     }
 
 
+                } else {
+                    JOptionPane.showMessageDialog(new JFrame(), "请先选择要发送的文件!");
                 }
             }
         });
@@ -115,6 +118,28 @@ public class FileUploader extends JFrame {
             }
         });
 
+        showShareFileListButton = new JButton("共享文件列表");
+        showShareFileListButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                showShareFileList();
+            }
+        });
+
+
+        showDownloadFileButton = new JButton("查看下载文件");
+        showDownloadFileButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String path = PropertyParser.getDownloadRoot();
+                File file = new File(path);
+                try {
+                    Desktop.getDesktop().open(file);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
 
         filePanel.add(fileLabel);
         filePanel.add(fileTextField);
@@ -122,6 +147,8 @@ public class FileUploader extends JFrame {
 
         buttonPanel.add(uploadButton);
         buttonPanel.add(showUserListButton);
+        buttonPanel.add(showShareFileListButton);
+        buttonPanel.add(showDownloadFileButton);
 
         mainPanel.add(filePanel, BorderLayout.NORTH);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
@@ -160,7 +187,7 @@ public class FileUploader extends JFrame {
                     fileChooser = new JFileChooser();
                     File desktopDir = new File(System.getProperty("user.home"), "Desktop");
                     fileChooser.setCurrentDirectory(desktopDir);
-                    int returnVal = fileChooser.showOpenDialog(FileUploader.this);
+                    int returnVal = fileChooser.showOpenDialog(ClientWindow.this);
                     if (returnVal == JFileChooser.APPROVE_OPTION) {
                         selectedFile = fileChooser.getSelectedFile();
                     }
@@ -190,7 +217,7 @@ public class FileUploader extends JFrame {
         });
 
         // create the "Back" button
-        JButton backButton = new JButton("Back");
+        JButton backButton = new JButton("返回");
         backButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 userListFrame.dispose();
@@ -215,4 +242,76 @@ public class FileUploader extends JFrame {
         userListFrame.setVisible(true);
     }
 
+
+    private void showShareFileList() {
+        JFrame fileListFrame = new JFrame("共享文件列表");
+        fileListFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        // create the user list
+        DefaultListModel<String> fileListModel = new DefaultListModel<String>();
+
+        for (String ip : Cache.ipTable) {
+            try {
+                if (CommonUtil.checkSelf(ip)) {
+                    for(String file : Cache.ipRecourceMap.get(ip)) {
+                        fileListModel.addElement(file);
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        JList<String> fileList = new JList<String>(fileListModel);
+
+        // create the "Send File" button
+        JButton sendFileButton = new JButton("删除");
+
+        sendFileButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                String selectedFile = fileList.getSelectedValue();
+                if (selectedFile != null) {
+                    File file = new File(PropertyParser.getShareRoot() + "/" + selectedFile);
+                    if (file.exists()) {
+                        boolean isDeleted = file.delete();
+                        if (isDeleted) {
+                            JOptionPane.showMessageDialog(fileListFrame, "文件删除成功!");
+                            fileListModel.removeElement(selectedFile);
+                        } else {
+                            JOptionPane.showMessageDialog(fileListFrame, "文件删除失败!");
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(fileListFrame, "该文件已经被删除!");
+                    }
+                    Cache.add(Cache.localHost, FileScanner.getAllFiles(PropertyParser.getShareRoot()));
+                } else {
+                    JOptionPane.showMessageDialog(fileListFrame, "请先选择要删除的文件!");
+                }
+            }
+        });
+
+        // create the "Back" button
+        JButton backButton = new JButton("返回");
+        backButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fileListFrame.dispose();
+            }
+        });
+
+        // add the user list, send file button and back button to the frame
+        JPanel userListPanel = new JPanel(new GridLayout(1, 1));
+        userListPanel.add(fileList);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        buttonPanel.add(sendFileButton);
+        buttonPanel.add(backButton);
+
+        fileListFrame.getContentPane().add(userListPanel, BorderLayout.CENTER);
+        fileListFrame.getContentPane().add(buttonPanel, BorderLayout.SOUTH);
+
+        // set the frame size and make it visible
+        fileListFrame.setPreferredSize(new Dimension(300, 200));
+        fileListFrame.pack();
+        fileListFrame.setLocationRelativeTo(null);
+        fileListFrame.setVisible(true);
+    }
 }
